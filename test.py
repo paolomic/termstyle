@@ -1,9 +1,13 @@
 
 import sys
+
+
 from termstyle import TermStyle as style
     
+style.Init()
+
 print()
-style._generate_all()
+#style._generate_all()
 
 
 print (style.style_ok+" Ok "+style.style_end)

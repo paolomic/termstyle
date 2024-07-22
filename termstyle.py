@@ -1,9 +1,30 @@
 import sys
+import os
+import winreg
+
+def read_virtual_terminal_level() -> int:
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Console")
+        value, type = winreg.QueryValueEx(key, "VirtualTerminalLevel")         #VirtualTerminalLevel QuickEdit
+        winreg.CloseKey(key)
+        return int(value)
+    except WindowsError:
+        return 0    # valore non trovato
+
+def detect_shell():
+    if "TERM_PROGRAM" in os.environ and os.environ["TERM_PROGRAM"] == "vscode":
+        return "vscode"
+    if "PSModulePath" in os.environ:
+        return "powershell"
+    if os.environ.get("ComSpec", "").lower().endswith("cmd.exe"):
+        return "cmd"
+    return "unknow"
+    
 
 class TermStyle:
   # Note: to enable Coloring in command-powershell: 
   #   [REG ADD HKCU\CONSOLE /f /v VirtualTerminalLevel /t REG_DWORD /d 1]
-  
+
   # =================== ANSI escape Codes
   reset   = u"\u001b[0m"
   bold    = u"\u001b[1m"
@@ -34,7 +55,6 @@ class TermStyle:
   #clr_upto_line_begin= u"\u001b[1K"
   #clr_line= u"\u001b[2K"
 
-
   # =================== color codes 0-255 (basic: see _generate for alls)
   black   = 0
   white   = 255
@@ -46,25 +66,35 @@ class TermStyle:
   yellow  = 226   #190
   # ...
 
-  # =================== 256 color code 
-  def fore(code:str) -> str:
+  # =================== Enabling
+  __enable = False   #static like
+
+  def isenabled():
+    return TermStyle.__enable
+
+  def fore(code) -> str:
+    if not TermStyle.__enable:  return ""
     return u"\u001b[38;5;" + str(code) + "m"
 
   def back(code:str) -> str:
+    if not TermStyle.__enable: return ""
     return u"\u001b[48;5;" + str(code) + "m"
   
   def colors(fg:str, bk:str) -> str:
+    if not TermStyle.__enable: return ""
     return TermStyle.fore(fg)+TermStyle.back(bk)
   
   # =================== rgb encoding
   def fg_rgb(rgb:list) -> str:
+    if not TermStyle.__enable: return ""
     return f"\033[38;2;{rgb[0]};{rgb[1]};{rgb[2]}m"
     
   def bk_rgb(rgb:list) -> str:
+    if not TermStyle.__enable: return ""
     return f"\033[48;2;{rgb[0]};{rgb[1]};{rgb[2]}m"
   
   def print(style, value, wrap_italic=True):
-    if (style):
+    if (TermStyle.__enable and style):
       towrap = (wrap_italic and value and TermStyle.italic in style and
                  ("\u001b[48;5;" in style or TermStyle.select in style))
       if towrap:
@@ -89,8 +119,37 @@ class TermStyle:
         print (TermStyle.reset)
     
   # =================== Application Styles
-  style_end = reset
-  style_err = fore(yellow)+back(red)+bold+italic+blink
-  style_wrn = fore(orange)+bold+italic
-  style_ok  = fore(white)+back(green)+bold+italic
-  style_tmr = fore(45)+back(17)+bold+italic
+
+  style_end = ""
+  style_err = ""
+  style_wrn = ""
+  style_ok  = ""
+  style_tmr = ""
+
+  @classmethod
+  def Init(cls) -> bool:
+    if cls.__enable:
+       return True
+
+    cls.__enable = False
+    cls.style_end = ""
+    cls.style_err = ""
+    cls.style_wrn = ""
+    cls.style_ok  = ""
+    cls.style_tmr = ""     
+
+    shelltype = detect_shell()
+    if shelltype != "vscode" and read_virtual_terminal_level() == 0:
+      print(f"WARNING: shell {shelltype}: ANSI escape char not Enabled! Use command:")
+      print('  \"REG ADD HKCU\\CONSOLE /f /v VirtualTerminalLevel /t REG_DWORD /d 1\"')
+    else:
+      cls.__enable = True
+
+      cls.style_end = cls.reset
+      cls.style_err = cls.fore(cls.yellow) + cls.bold + cls.italic + cls.blink + cls.back(cls.red)
+      cls.style_wrn = cls.fore(cls.orange) + cls.bold + cls.italic
+      cls.style_ok  = cls.fore(cls.white) + cls.back(cls.green) + cls.bold + cls.italic
+      cls.style_tmr = cls.fore(45) + cls.back(17) + cls.bold + cls.italic
+     
+    return cls.__enable
+  
