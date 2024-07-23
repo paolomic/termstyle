@@ -22,8 +22,8 @@ def detect_shell():
     
 
 class TermStyle:
-  # Note: to enable Coloring in command-powershell: 
-  #   [REG ADD HKCU\CONSOLE /f /v VirtualTerminalLevel /t REG_DWORD /d 1]
+  # =================== Enabling
+  __enable = False   #static like
 
   # =================== ANSI escape Codes
   reset   = u"\u001b[0m"
@@ -55,7 +55,7 @@ class TermStyle:
   #clr_upto_line_begin= u"\u001b[1K"
   #clr_line= u"\u001b[2K"
 
-  # =================== color codes 0-255 (basic: see _generate for alls)
+  # =================== 256 color (see _generate to pick)
   black   = 0
   white   = 255
   gray    = 247
@@ -64,10 +64,7 @@ class TermStyle:
   blue    = 27
   orange  = 202
   yellow  = 226   #190
-  # ...
-
-  # =================== Enabling
-  __enable = False   #static like
+  # ...add here
 
   def isenabled():
     return TermStyle.__enable
@@ -93,6 +90,7 @@ class TermStyle:
     if not TermStyle.__enable: return ""
     return f"\033[48;2;{rgb[0]};{rgb[1]};{rgb[2]}m"
   
+  # =================== styled print
   def print(style, value, wrap_italic=True):
     if (TermStyle.__enable and style):
       towrap = (wrap_italic and value and TermStyle.italic in style and
@@ -105,7 +103,7 @@ class TermStyle:
       value = style + value + TermStyle.style_end
     print(value)
 
-  # =================== Color Picker Purpose Only
+  # =================== Color Picker - Purpose Only
   def _generate_all():                  
     for i in range(0, 16):
         for j in range(0, 16):
@@ -120,7 +118,7 @@ class TermStyle:
     
   # =================== Application Styles
 
-  style_end = ""
+  style_end = ""      # used as static
   style_err = ""
   style_wrn = ""
   style_ok  = ""
@@ -140,11 +138,12 @@ class TermStyle:
 
     shelltype = detect_shell()
     if shelltype != "vscode" and read_virtual_terminal_level() == 0:
-      print(f"WARNING: shell {shelltype}: ANSI escape char not Enabled! Use command:")
-      print('  \"REG ADD HKCU\\CONSOLE /f /v VirtualTerminalLevel /t REG_DWORD /d 1\"')
+      print(f"WARNING: shell {shelltype}: ANSI escape chars are not Enabled! Use command:")
+      print('  [REG ADD HKCU\\CONSOLE /f /v VirtualTerminalLevel /t REG_DWORD /d 1]')
     else:
       cls.__enable = True
 
+      # application styles composition
       cls.style_end = cls.reset
       cls.style_err = cls.fore(cls.yellow) + cls.bold + cls.italic + cls.blink + cls.back(cls.red)
       cls.style_wrn = cls.fore(cls.orange) + cls.bold + cls.italic
